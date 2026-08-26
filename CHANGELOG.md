@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Treat credential variable names stored in `_ENV` fields as indirect references rather than secret values.
+
 ## 0.1.0
 
 - Initial public source release of the library and CLI.

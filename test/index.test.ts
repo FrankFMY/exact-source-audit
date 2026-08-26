@@ -37,6 +37,7 @@ GITHUB_TOKEN=${token}
 SERVICE_SECRET_FILE=/run/secrets/service
 `);
     expect(findings).toMatchObject([{ detector: "github_token", line: 2, path: "production.env" }]);
+    expect(scanSecretText("config.json", '"auth_token_env": "DEVICE_TOKEN_PUMP_01"')).toEqual([]);
     expect(JSON.stringify(findings)).not.toContain(token);
     expect(findings[0]?.digest).toMatch(/^[0-9a-f]{12}$/u);
   });

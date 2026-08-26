@@ -1,6 +1,6 @@
 {
   "name": "@frankfmy/exact-source-audit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun projects.",
   "type": "module",
   "private": true,
