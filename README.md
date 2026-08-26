@@ -19,10 +19,13 @@ I built this tool for release pipelines where evidence must describe the exact s
 
 ## Installation
 
-The package is private while I finish the public release decision.
+The source repository is public. Registry publication is intentionally deferred, so the package remains marked private until a separate npm release gate is completed.
 
 ```bash
-bun add -d @frankfmy/exact-source-audit
+git clone https://github.com/FrankFMY/exact-source-audit.git
+cd exact-source-audit
+bun install --frozen-lockfile
+bun run verify
 ```
 
 ## CLI
@@ -30,13 +33,16 @@ bun add -d @frankfmy/exact-source-audit
 Scan the exact staged index:
 
 ```bash
-source-audit secrets --root .
+bun src/cli.ts secrets --root .
 ```
 
 Generate a deterministic CycloneDX SBOM:
 
 ```bash
-source-audit sbom   --root .   --revision "$(git rev-parse HEAD)"   --output /tmp/source-sbom.cdx.json
+bun src/cli.ts sbom \
+  --root . \
+  --revision "$(git rev-parse HEAD)" \
+  --output /tmp/source-sbom.cdx.json
 ```
 
 ## Library API
@@ -77,6 +83,4 @@ bun run verify
 
 ## License
 
-Copyright © 2026 Artem Prianishnikov. All rights reserved.
-
-This repository is private and proprietary. See [LICENSE.md](LICENSE.md).
+Apache-2.0 © 2026 Artem Prianishnikov. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

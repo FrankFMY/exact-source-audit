@@ -14,7 +14,7 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE.md"],
+  "files": ["dist", "README.md", "LICENSE", "NOTICE"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc -p tsconfig.json",
@@ -27,7 +27,7 @@
     "email": "Pryanishnikovartem@gmail.com",
     "url": "https://frankfmy.com"
   },
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "homepage": "https://frankfmy.com",
   "repository": {
     "type": "git",
