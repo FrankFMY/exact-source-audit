@@ -3,10 +3,10 @@
   "version": "0.1.1",
   "description": "Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun projects.",
   "type": "module",
-  "private": true,
+
   "sideEffects": false,
   "bin": {
-    "source-audit": "./dist/cli.js"
+    "source-audit": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -14,12 +14,14 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE", "NOTICE"],
+  "files": ["dist", "README.md", "SECURITY.md", "CHANGELOG.md", "LICENSE", "NOTICE"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc -p tsconfig.json",
     "test": "bun test",
-    "verify": "bun run check && bun test && bun run build"
+    "prepack": "bun run build",
+    "package:check": "node scripts/verify-package-contract.mjs",
+    "verify": "bun run check && bun test && bun run build && bun run package:check"
   },
   "keywords": ["cyclonedx", "sbom", "secret-scanner", "git-index", "supply-chain", "bun", "devsecops"],
   "author": {
@@ -36,8 +38,9 @@
   "bugs": {
     "url": "https://github.com/FrankFMY/exact-source-audit/issues"
   },
-  "engines": { "node": ">=20" },
+  "engines": { "bun": ">=1.4.0" },
   "packageManager": "bun@1.4.0",
+  "publishConfig": { "access": "public" },
   "devDependencies": {
     "@types/bun": "1.4.0",
     "@types/node": "^24.0.0",

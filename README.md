@@ -1,6 +1,6 @@
 # Exact Source Audit
 
-Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun and TypeScript repositories.
+Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun and TypeScript repositories. The CLI and SBOM parser require Bun 1.4 or newer.
 
 I built this tool for release pipelines where evidence must describe the exact staged source—not an ambient worktree, dereferenced symlink, ignored file, or mutable replacement ref.
 
@@ -19,27 +19,24 @@ I built this tool for release pipelines where evidence must describe the exact s
 
 ## Installation
 
-The source repository is public. Registry publication is intentionally deferred, so the package remains marked private until a separate npm release gate is completed.
-
 ```bash
-git clone https://github.com/FrankFMY/exact-source-audit.git
-cd exact-source-audit
-bun install --frozen-lockfile
-bun run verify
+bun add --global @frankfmy/exact-source-audit
 ```
+
+The first npm version is bootstrapped once from its clean exact tag with interactive account 2FA using `scripts/bootstrap-first-npm-release.sh`; subsequent releases use the repository's OIDC trusted publisher.
 
 ## CLI
 
 Scan the exact staged index:
 
 ```bash
-bun src/cli.ts secrets --root .
+source-audit secrets --root .
 ```
 
 Generate a deterministic CycloneDX SBOM:
 
 ```bash
-bun src/cli.ts sbom \
+source-audit sbom \
   --root . \
   --revision "$(git rev-parse HEAD)" \
   --output /tmp/source-sbom.cdx.json

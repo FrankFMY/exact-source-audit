@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildCycloneDx, scanSecretText } from "../src/index.js";
+import { buildCycloneDx, parseIndexEntries, scanSecretText } from "../src/index.js";
 
 const lockFixture = `{
   "lockfileVersion": 3,
@@ -40,5 +40,15 @@ SERVICE_SECRET_FILE=/run/secrets/service
     expect(scanSecretText("config.json", '"auth_token_env": "DEVICE_TOKEN_PUMP_01"')).toEqual([]);
     expect(JSON.stringify(findings)).not.toContain(token);
     expect(findings[0]?.digest).toMatch(/^[0-9a-f]{12}$/u);
+  });
+
+  test("parses and distinguishes non-UTF-8 Git paths without lossy decoding", () => {
+    const header = new TextEncoder().encode(`100644 ${"a".repeat(40)} 0\t`);
+    const snapshot = (pathByte: number) => Uint8Array.from([...header, pathByte, 0]);
+    const first = parseIndexEntries(snapshot(0x80))[0]!;
+    const second = parseIndexEntries(snapshot(0x81))[0]!;
+    expect(first.path).not.toBe(second.path);
+    expect([...first.pathBytes]).toEqual([0x80]);
+    expect([...second.pathBytes]).toEqual([0x81]);
   });
 });

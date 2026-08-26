@@ -61,4 +61,25 @@ describe("source-audit CLI", () => {
       await rm(directory, { force: true, recursive: true });
     }
   });
+
+  test("keeps non-UTF-8 Git paths distinct in index digests and findings", async () => {
+    const directories = [await mkdtemp(join(tmpdir(), "source-audit-byte-path-a-")), await mkdtemp(join(tmpdir(), "source-audit-byte-path-b-"))];
+    try {
+      const outputs = [];
+      for (const [index, directory] of directories.entries()) {
+        await runCommand(["git", "init", "-q"], directory);
+        const path = Buffer.concat([Buffer.from(`${directory}/`), Buffer.from([0x80 + index])]);
+        await writeFile(path, `GITHUB_TOKEN=ghp_${"E".repeat(36)}\n`);
+        await runCommand(["git", "add", "--all"], directory);
+        const result = await runSecrets(directory);
+        expect(result.exitCode).toBe(1);
+        outputs.push(JSON.parse(result.stdout));
+      }
+      expect(outputs[0].indexDigest).not.toBe(outputs[1].indexDigest);
+      expect(outputs[0].findings[0].path).toBe("git-path-bytes:80");
+      expect(outputs[1].findings[0].path).toBe("git-path-bytes:81");
+    } finally {
+      await Promise.all(directories.map((directory) => rm(directory, { force: true, recursive: true })));
+    }
+  });
 });
