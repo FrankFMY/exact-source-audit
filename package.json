@@ -1,0 +1,46 @@
+{
+  "name": "@frankfmy/exact-source-audit",
+  "version": "0.1.0",
+  "description": "Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun projects.",
+  "type": "module",
+  "private": true,
+  "sideEffects": false,
+  "bin": {
+    "source-audit": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "verify": "bun run check && bun test && bun run build"
+  },
+  "keywords": ["cyclonedx", "sbom", "secret-scanner", "git-index", "supply-chain", "bun", "devsecops"],
+  "author": {
+    "name": "Artem Prianishnikov",
+    "email": "Pryanishnikovartem@gmail.com",
+    "url": "https://frankfmy.com"
+  },
+  "license": "UNLICENSED",
+  "homepage": "https://frankfmy.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FrankFMY/exact-source-audit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FrankFMY/exact-source-audit/issues"
+  },
+  "engines": { "node": ">=20" },
+  "packageManager": "bun@1.4.0",
+  "devDependencies": {
+    "@types/bun": "1.4.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.0"
+  }
+}
