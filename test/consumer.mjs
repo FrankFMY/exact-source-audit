@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { buildCycloneDx, parseIndexEntries, scanSecretText } from "@frankfmy/exact-source-audit";
+const target = dirname(new URL(import.meta.url).pathname);
+const cli = join(target, "node_modules/.bin/source-audit");
+const fixture = mkdtempSync(join(tmpdir(), "audit-installed-"));
+const repo = join(fixture, "repo"); mkdirSync(repo);
+const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+const token = `ghp_${"A".repeat(36)}`;
+try {
+  git("init", "-q");
+  writeFileSync(join(repo, "safe.txt"), "safe\n");
+  writeFileSync(join(repo, "tracked.env"), `GITHUB_TOKEN=${token}\n`);
+  const outside = join(fixture, "outside.env"); writeFileSync(outside, `GITHUB_TOKEN=ghp_${"B".repeat(36)}\n`);
+  symlinkSync(outside, join(repo, "tracked-link"));
+  git("add", "safe.txt", "tracked.env", "tracked-link");
+  writeFileSync(join(repo, "tracked.env"), "safe worktree bytes\n");
+  writeFileSync(join(repo, "untracked.env"), `GITHUB_TOKEN=ghp_${"C".repeat(36)}\n`);
+  const snapshot = execFileSync("git", ["ls-files", "--stage", "-z"], { cwd: repo });
+  const entries = parseIndexEntries(snapshot); assert.equal(entries.length, 3); assert.equal(entries.find(x => x.path === "tracked-link").mode, "120000");
+  const detected = spawnSync(cli, ["secrets", "--root", repo], { encoding: "utf8" }); assert.equal(detected.status, 1);
+  const report = JSON.parse(detected.stdout); assert.equal(report.files, 3); assert.equal(report.status, "findings");
+  assert.equal(report.indexDigest, createHash("sha256").update(snapshot).digest("hex"));
+  assert.deepEqual(report.findings.map(x => [x.path, x.detector]), [["tracked.env", "github_token"]]);
+  assert.ok(!detected.stdout.includes(token) && !detected.stdout.includes("B".repeat(36)) && !detected.stdout.includes("C".repeat(36)));
+  assert.equal(scanSecretText("config.env", `GITHUB_TOKEN=${token}`)[0].digest, createHash("sha256").update(token).digest("hex").slice(0, 12));
+  git("add", "tracked.env"); const clean = spawnSync(cli, ["secrets", "--root", repo], { encoding: "utf8" }); assert.equal(clean.status, 0); assert.equal(JSON.parse(clean.stdout).status, "clean");
+  const revision = "a".repeat(40); // explicitly synthetic revision for the owned lockfile fixture
+  const lock = JSON.stringify({ workspaces: { "": { name: "fixture" } }, packages: { fixture: ["fixture@1.2.3", "", {}, `sha512-${Buffer.alloc(64, 1).toString("base64")}`] } });
+  const bom = buildCycloneDx(lock, revision); assert.equal(bom.components[0].hashes[0].content, "01".repeat(64)); assert.equal(bom.components[0].purl, "pkg:npm/fixture@1.2.3");
+  assert.deepEqual(buildCycloneDx(lock, revision), bom); assert.throws(() => buildCycloneDx(lock, "main"), /exact Git SHA/);
+  writeFileSync(join(repo, "bun.lock"), lock); const output = join(fixture, "sbom.json");
+  const sbom = spawnSync(cli, ["sbom", "--root", repo, "--revision", revision, "--output", output], { encoding: "utf8" }); assert.equal(sbom.status, 0);
+  assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), bom); assert.equal(statSync(output).mode & 0o777, 0o600);
+  console.log("installed exact-index/redacted-secret/SBOM/CLI consumer: PASS");
+} finally { rmSync(fixture, { recursive: true, force: true }); }

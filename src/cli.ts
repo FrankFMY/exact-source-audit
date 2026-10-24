@@ -12,7 +12,10 @@ const requiredFlag = (args: string[], name: string): string => {
 };
 
 const runGitBytes = async (cwd: string, args: string[]): Promise<Uint8Array> => {
-  const child = Bun.spawn(["git", "--no-replace-objects", ...args], { cwd, stderr: "pipe", stdout: "pipe" });
+  const child = Bun.spawn(["git", "--no-replace-objects", ...args], {
+    cwd, stderr: "pipe", stdout: "pipe",
+    env: { ...process.env, GIT_ALLOW_PROTOCOL: "", GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" },
+  });
   const [exitCode, stdout] = await Promise.all([child.exited, new Response(child.stdout).arrayBuffer()]);
   if (exitCode !== 0) throw new Error(`Git command failed: ${args[0] ?? "unknown"}`);
   return new Uint8Array(stdout);

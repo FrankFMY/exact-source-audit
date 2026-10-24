@@ -9,14 +9,33 @@ const lockFixture = `{
     "server": { "name": "@example/server" }
   },
   "packages": {
-    "zeta": ["zeta@1.0.0", "", {}, "sha512-AQID"],
-    "zeta-copy": ["zeta@1.0.0", "", {}, "sha512-AQID"],
-    "@scope/alpha": ["@scope/alpha@2.0.0", "", {}, "sha512-BAUG"],
+    "zeta": ["zeta@1.0.0", "", {}, "sha512-${Buffer.alloc(64, 1).toString("base64")}"],
+    "zeta-copy": ["zeta@1.0.0", "", {}, "sha512-${Buffer.alloc(64, 1).toString("base64")}"],
+    "@scope/alpha": ["@scope/alpha@2.0.0", "", {}, "sha512-${Buffer.alloc(64, 2).toString("base64")}"],
     "@example/server": ["@example/server@workspace:server"]
   }
 }`;
 
 describe("exact source audit", () => {
+  test("rejects object identifiers that are neither SHA-1 nor SHA-256", () => {
+    const snapshot = new TextEncoder().encode(`100644 ${"a".repeat(41)} 0\tfile.txt\0`);
+    expect(() => parseIndexEntries(snapshot)).toThrow("Unsupported");
+  });
+
+  test("orders SBOM components independently of locale collation", () => {
+    const first = buildCycloneDx(lockFixture, "a".repeat(40));
+    const original = String.prototype.localeCompare;
+    try {
+      String.prototype.localeCompare = function (other: string): number { return -original.call(this, other); };
+      expect(buildCycloneDx(lockFixture, "a".repeat(40))).toEqual(first);
+    } finally { String.prototype.localeCompare = original; }
+  });
+
+  test("rejects malformed SHA-512 integrity instead of emitting an invalid SBOM hash", () => {
+    const malformed = lockFixture.replaceAll(Buffer.alloc(64, 1).toString("base64"), "AQID");
+    expect(() => buildCycloneDx(malformed, "a".repeat(40))).toThrow("integrity");
+  });
+
   test("builds a deterministic sorted CycloneDX BOM", () => {
     const first = buildCycloneDx(lockFixture, "a".repeat(40));
     const second = buildCycloneDx(lockFixture, "a".repeat(40));

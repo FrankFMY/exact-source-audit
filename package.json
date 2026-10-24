@@ -1,6 +1,6 @@
 {
   "name": "@frankfmy/exact-source-audit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Exact Git-index secret scanning and deterministic CycloneDX SBOM generation for Bun projects.",
   "type": "module",
 
@@ -30,7 +30,7 @@
     "url": "https://frankfmy.com"
   },
   "license": "Apache-2.0",
-  "homepage": "https://frankfmy.com",
+  "homepage": "https://github.com/FrankFMY/exact-source-audit#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FrankFMY/exact-source-audit.git"
