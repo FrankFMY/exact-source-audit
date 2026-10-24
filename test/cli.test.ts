@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,6 +18,28 @@ const runSecrets = async (root: string) => {
 };
 
 describe("source-audit CLI", () => {
+  test("fails closed on a missing indexed blob without activating a promisor helper", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "source-audit-promisor-"));
+    try {
+      await runCommand(["git", "init", "-q"], directory);
+      await writeFile(join(directory, "tracked.txt"), "owned fixture\n");
+      await runCommand(["git", "add", "tracked.txt"], directory);
+      const oid = (await runCommand(["git", "rev-parse", ":tracked.txt"], directory)).trim();
+      const marker = join(directory, "helper-executed");
+      const helper = join(directory, "helper.sh");
+      await writeFile(helper, `#!/bin/sh\nprintf executed > '${marker}'\nexit 1\n`);
+      await chmod(helper, 0o755);
+      await runCommand(["git", "remote", "add", "origin", `ext::${helper}`], directory);
+      await runCommand(["git", "config", "remote.origin.promisor", "true"], directory);
+      await runCommand(["git", "config", "remote.origin.partialclonefilter", "blob:none"], directory);
+      await runCommand(["git", "config", "protocol.ext.allow", "always"], directory);
+      await unlink(join(directory, ".git", "objects", oid.slice(0, 2), oid.slice(2)));
+      const result = await runSecrets(directory);
+      expect(result.exitCode).toBe(1);
+      expect(await Bun.file(marker).exists()).toBe(false);
+    } finally { await rm(directory, { force: true, recursive: true }); }
+  });
+
   test("reads exact index blobs, ignores untracked content, and does not follow symlinks", async () => {
     const directory = await mkdtemp(join(tmpdir(), "source-audit-index-"));
     const outside = await mkdtemp(join(tmpdir(), "source-audit-outside-"));

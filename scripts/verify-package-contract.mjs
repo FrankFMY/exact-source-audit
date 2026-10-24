@@ -1,41 +1,24 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const target = mkdtempSync(join(tmpdir(), "exact-source-audit-consumer-"));
-
+const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const target = mkdtempSync(join(tmpdir(), "source-audit-consumer-"));
 try {
-  const output = execFileSync("npm", ["pack", "--silent", "--pack-destination", target], {
-    cwd: root,
-    encoding: "utf8",
-  }).trim();
-  const tarball = join(target, output.split("\n").at(-1));
-  writeFileSync(join(target, "package.json"), '{"name":"exact-source-audit-consumer","private":true,"type":"module"}\n');
-  execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], {
-    cwd: target,
-    stdio: "pipe",
-  });
-  const manifest = JSON.parse(readFileSync(join(target, "node_modules/@frankfmy/exact-source-audit/package.json"), "utf8"));
-  if (manifest.bin?.["source-audit"] !== "dist/cli.js") throw new Error("installed bin contract failed");
-  const fixture = join(target, "fixture");
-  execFileSync("mkdir", ["-p", fixture]);
-  execFileSync("git", ["init", "-q"], { cwd: fixture });
-  writeFileSync(join(fixture, "safe.txt"), "safe\n");
-  execFileSync("git", ["add", "safe.txt"], { cwd: fixture });
-  const cliOutput = execFileSync(join(target, "node_modules/.bin/source-audit"), ["secrets", "--root", fixture], {
-    cwd: target,
-    encoding: "utf8",
-  });
-  const result = JSON.parse(cliOutput);
-  if (result.status !== "clean" || result.files !== 1) throw new Error("installed CLI smoke failed");
-  writeFileSync(
-    join(target, "check.mjs"),
-    'import("@frankfmy/exact-source-audit").then((module) => { if (module.scanSecretText("safe.txt", "safe").length !== 0) process.exit(1); });\n',
-  );
-  execFileSync(process.execPath, [join(target, "check.mjs")], { cwd: target, stdio: "inherit" });
-  console.log("isolated exact-source-audit package/bin: PASS");
-} finally {
-  rmSync(target, { force: true, recursive: true });
-}
+  const spec = process.env.CONSUMER_PACKAGE ?? join(target, execFileSync("npm", ["pack", "--silent", "--pack-destination", target], { cwd: root, encoding: "utf8" }).trim().split("\n").at(-1));
+  writeFileSync(join(target, "package.json"), JSON.stringify({ name: "source-audit-consumer", private: true, type: "module" }));
+  execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", spec], { cwd: target, stdio: "pipe" });
+  const packageRoot = join(target, "node_modules", ...manifest.name.split("/"));
+  const installed = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  for (const key of ["name", "version", "license"]) if (installed[key] !== manifest[key]) throw new Error(`metadata mismatch: ${key}`);
+  for (const path of ["LICENSE", "NOTICE", "SECURITY.md", ...Object.values(installed.exports).flatMap(value => Object.values(value))]) if (!existsSync(join(packageRoot, path))) throw new Error(`missing distribution file: ${path}`);
+  for (const file of ["consumer.mjs", "consumer-types.mts"]) copyFileSync(join(root, "test", file), join(target, file));
+  writeFileSync(join(target, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", types: [] }, include: ["*.mts"] }));
+  execFileSync("bun", [join(target, "consumer.mjs")], { cwd: target, stdio: "inherit" });
+  execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", join(target, "tsconfig.json")], { cwd: target, stdio: "inherit" });
+  execFileSync("npm", ["ls", "--all"], { cwd: target, stdio: "inherit" });
+  execFileSync("npm", ["audit", "--omit=dev", "--audit-level=high"], { cwd: target, stdio: "inherit" });
+  console.log("installed positive/negative TypeScript contract: PASS");
+} finally { rmSync(target, { recursive: true, force: true }); }
